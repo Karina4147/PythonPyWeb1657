@@ -2,16 +2,16 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework import status
+from rest_framework import status, filters
 from django.views.decorators.csrf import csrf_exempt  # Чтобы post, put, patch, delete не требовали csrf токена (небезопасно)
 from apps.db_train_alternative.models import Author
 from .serializers import AuthorSerializer, AuthorModelSerializer
 from django.http import Http404
 from rest_framework.generics import GenericAPIView
 from rest_framework.mixins import RetrieveModelMixin, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
-from .serializers import AuthorModelSerializer
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class AuthorPagination(PageNumberPagination):
@@ -24,10 +24,22 @@ class AuthorViewSet(ModelViewSet):
     serializer_class = AuthorModelSerializer
     pagination_class = AuthorPagination
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name__contains=name)
+        return queryset
+
     @action(detail=True, methods=['post'])
     def my_action(self, request, pk=None):
         # Ваша пользовательская логика здесь
         return Response({'message': f'Пользовательская функция для пользователя с pk={pk}'})
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['name', 'email']  # Указываем для каких полем можем проводить фильтрацию
+    search_fields = ['email']  # Поля, по которым будет выполняться поиск
+    ordering_fields = ['name', 'email']  # Поля, по которым можно сортировать
 
 
 class AuthorGenericAPIView(GenericAPIView, RetrieveModelMixin, ListModelMixin, CreateModelMixin, UpdateModelMixin,
